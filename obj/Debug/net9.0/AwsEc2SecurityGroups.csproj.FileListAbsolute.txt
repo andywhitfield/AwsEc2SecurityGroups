@@ -1,0 +1,14 @@
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/bin/Debug/net9.0/AwsEc2SecurityGroups
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/bin/Debug/net9.0/AwsEc2SecurityGroups.deps.json
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/bin/Debug/net9.0/AwsEc2SecurityGroups.runtimeconfig.json
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/bin/Debug/net9.0/AwsEc2SecurityGroups.dll
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/bin/Debug/net9.0/AwsEc2SecurityGroups.pdb
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/AwsEc2SecurityGroups.GeneratedMSBuildEditorConfig.editorconfig
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/AwsEc2SecurityGroups.AssemblyInfoInputs.cache
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/AwsEc2SecurityGroups.AssemblyInfo.cs
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/AwsEc2SecurityGroups.csproj.CoreCompileInputs.cache
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/AwsEc2SecurityGroups.dll
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/refint/AwsEc2SecurityGroups.dll
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/AwsEc2SecurityGroups.pdb
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/AwsEc2SecurityGroups.genruntimeconfig.cache
+/Users/andywhitfield/Library/CloudStorage/Dropbox/Projects/AwsEc2SecurityGroups/obj/Debug/net9.0/ref/AwsEc2SecurityGroups.dll
