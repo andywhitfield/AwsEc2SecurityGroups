@@ -2,7 +2,7 @@
 using System.Text.Json;
 using AwsEc2SecurityGroups;
 
-while (await RunAppAsync());
+while (await RunAppAsync()) { }
 
 static async Task<bool> RunAppAsync()
 {
@@ -69,7 +69,7 @@ static async Task ResetRulesAsync()
     {
         if (rule.IsEgress || rule.FromPort == 80 || rule.FromPort == 443)
             continue;
-        
+
         Console.WriteLine($"Removing rule {rule.SecurityGroupRuleId}: [{rule.IpProtocol}] {rule.FromPort}{(rule.ToPort == rule.FromPort ? "" : $"-{rule.ToPort}")} {rule.CidrIpv4}");
         var removeResponse = await CallAwsCliAsync<SecurityGroupRulesResponse>($"ec2 revoke-security-group-ingress --group-id sg-05253497db119d9e0 --security-group-rule-ids {rule.SecurityGroupRuleId}");
         Console.WriteLine(removeResponse.Return ?? false ? $"Successfully remove rule {rule.SecurityGroupRuleId}" : "Failed removing rule");
@@ -83,6 +83,35 @@ static async Task ResetRulesAsync()
 
 static async Task<T> CallAwsCliAsync<T>(string args)
 {
+    var callerIdentityOutput = await InvokeCommandAsync("sts get-caller-identity");
+    bool isLoggedIn;
+    try
+    {
+        var callerIdentity = JsonSerializer.Deserialize<AwsCallerIdentity>(callerIdentityOutput);
+        isLoggedIn = callerIdentity?.UserId != null;
+    }
+    catch
+    {
+        isLoggedIn = false;
+    }
+
+    if (!isLoggedIn)
+    {
+        Console.WriteLine("Not currently logged on, calling aws login...");
+        await InvokeCommandAsync("login");
+    }
+
+    return await InvokeAwsCommandAsync<T>(args);
+}
+
+static async Task<T> InvokeAwsCommandAsync<T>(string args)
+{
+    var jsonOutput = await InvokeCommandAsync(args);
+    return JsonSerializer.Deserialize<T>(jsonOutput) ?? throw new InvalidOperationException("Invalid aws cli response: " + jsonOutput);
+}
+
+static async Task<string> InvokeCommandAsync(string args)
+{
     ProcessStartInfo procInfo = new("aws")
     {
         Arguments = args,
@@ -90,6 +119,5 @@ static async Task<T> CallAwsCliAsync<T>(string args)
     };
     var proc = Process.Start(procInfo) ?? throw new InvalidOperationException("Could not run aws cli");
     await proc.WaitForExitAsync();
-    var jsonOutput = await proc.StandardOutput.ReadToEndAsync();
-    return JsonSerializer.Deserialize<T>(jsonOutput) ?? throw new InvalidOperationException("Invalid aws cli response: " + jsonOutput);
+    return await proc.StandardOutput.ReadToEndAsync();
 }
