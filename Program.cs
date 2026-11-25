@@ -1,123 +1,40 @@
-﻿using System.Diagnostics;
-using System.Text.Json;
-using AwsEc2SecurityGroups;
+﻿using AwsEc2SecurityGroups;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
-while (await RunAppAsync()) { }
-
-static async Task<bool> RunAppAsync()
+try
 {
-    Console.WriteLine(@"
-AWS EC2 Security Groups
-=======================
+    var builder = new ConfigurationBuilder()
+        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+        .AddEnvironmentVariables();
+    var configuration = builder.Build();
 
-1. View current rules
-2. Enable FTP ports
-3. Enable RDP port
-4. Reset to just HTTP/HTTPS rules
-x. Exit
-");
-    Console.Write("Option: ");
-    var opt = Console.ReadLine();
-    switch (opt)
-    {
-        case "1":
-            await ViewRulesAsync();
-            break;
-        case "2":
-            await EnablePortAsync(21);
-            await EnablePortAsync(1024, 1030);
-            break;
-        case "3":
-            await EnablePortAsync(3389);
-            break;
-        case "4":
-            await ResetRulesAsync();
-            break;
-        case "x":
-            return false;
-    }
+    var host = Host
+        .CreateDefaultBuilder(args)
+        .ConfigureServices(services =>
+        {
+            var dir = new DirectoryInfo(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AwsEc2SecurityGroups-Keys"));
+            Console.WriteLine("Persisting keys to: " + dir.FullName);
+            services.AddDataProtection().PersistKeysToFileSystem(dir);
+            services
+                .AddSingleton<IConfiguration>(configuration)
+                .Configure<SitesConfig>(configuration.GetSection("Sites"))
+                .AddScoped<FtpCredentials>()
+                .AddScoped<AwsCommand>()
+                .AddScoped<FtpCommand>()
+                .AddScoped<CliService>();
+        })
+        .Build();
 
-    return true;
+    await using var serviceScope = host.Services.CreateAsyncScope();
+    while (await serviceScope.ServiceProvider.GetRequiredService<CliService>().RunAppAsync()) { }
 }
-
-static async Task EnablePortAsync(int fromPort, int? toPort = null)
+catch (Exception ex)
 {
-    var externalIp = (await new HttpClient().GetStringAsync("https://checkip.amazonaws.com")).Trim();
-    Console.WriteLine($"My ip {externalIp}");
-    var response = await CallAwsCliAsync<SecurityGroupRulesResponse>($"ec2 authorize-security-group-ingress --group-id sg-05253497db119d9e0 --protocol tcp --port {(toPort == null ? fromPort : $"\"{fromPort}-{toPort}\"")} --cidr {externalIp}/32");
-    Console.WriteLine(response.Return ?? false ? $"Successfully added rule for port {(toPort == null ? fromPort : $"{fromPort}-{toPort}")}" : "Failed adding rule");
-    Console.WriteLine("New rule:");
-    foreach (var rule in (response.SecurityGroupRules ?? Enumerable.Empty<SecurityGroupRule>()).Where(x => !x.IsEgress))
-        Console.WriteLine($"{rule.SecurityGroupRuleId}: [{rule.IpProtocol}] {rule.FromPort}{(rule.ToPort == rule.FromPort ? "" : $"-{rule.ToPort}")} {rule.CidrIpv4}");
-}
-
-static async Task ViewRulesAsync()
-{
-    var response = await CallAwsCliAsync<SecurityGroupRulesResponse>("ec2 describe-security-group-rules --filter \"Name=group-id,Values=sg-05253497db119d9e0\"");
-    Console.WriteLine("Rules:");
-    Console.WriteLine("----");
-    foreach (var rule in (response.SecurityGroupRules ?? Enumerable.Empty<SecurityGroupRule>()).Where(x => !x.IsEgress))
-        Console.WriteLine($"{rule.SecurityGroupRuleId}: [{rule.IpProtocol}] {rule.FromPort}{(rule.ToPort == rule.FromPort ? "" : $"-{rule.ToPort}")} {rule.CidrIpv4}");
-    Console.WriteLine("----");
-}
-
-static async Task ResetRulesAsync()
-{
-    var response = await CallAwsCliAsync<SecurityGroupRulesResponse>("ec2 describe-security-group-rules --filter \"Name=group-id,Values=sg-05253497db119d9e0\"");
-    var removedCount = 0;
-    foreach (var rule in response.SecurityGroupRules ?? Enumerable.Empty<SecurityGroupRule>())
-    {
-        if (rule.IsEgress || rule.FromPort == 80 || rule.FromPort == 443)
-            continue;
-
-        Console.WriteLine($"Removing rule {rule.SecurityGroupRuleId}: [{rule.IpProtocol}] {rule.FromPort}{(rule.ToPort == rule.FromPort ? "" : $"-{rule.ToPort}")} {rule.CidrIpv4}");
-        var removeResponse = await CallAwsCliAsync<SecurityGroupRulesResponse>($"ec2 revoke-security-group-ingress --group-id sg-05253497db119d9e0 --security-group-rule-ids {rule.SecurityGroupRuleId}");
-        Console.WriteLine(removeResponse.Return ?? false ? $"Successfully remove rule {rule.SecurityGroupRuleId}" : "Failed removing rule");
-
-        removedCount++;
-    }
-
-    if (removedCount == 0)
-        Console.WriteLine("No custom rules, nothing removed.");
-}
-
-static async Task<T> CallAwsCliAsync<T>(string args)
-{
-    var callerIdentityOutput = await InvokeCommandAsync("sts get-caller-identity");
-    bool isLoggedIn;
-    try
-    {
-        var callerIdentity = JsonSerializer.Deserialize<AwsCallerIdentity>(callerIdentityOutput);
-        isLoggedIn = callerIdentity?.UserId != null;
-    }
-    catch
-    {
-        isLoggedIn = false;
-    }
-
-    if (!isLoggedIn)
-    {
-        Console.WriteLine("Not currently logged on, calling aws login...");
-        await InvokeCommandAsync("login");
-    }
-
-    return await InvokeAwsCommandAsync<T>(args);
-}
-
-static async Task<T> InvokeAwsCommandAsync<T>(string args)
-{
-    var jsonOutput = await InvokeCommandAsync(args);
-    return JsonSerializer.Deserialize<T>(jsonOutput) ?? throw new InvalidOperationException("Invalid aws cli response: " + jsonOutput);
-}
-
-static async Task<string> InvokeCommandAsync(string args)
-{
-    ProcessStartInfo procInfo = new("aws")
-    {
-        Arguments = args,
-        RedirectStandardOutput = true
-    };
-    var proc = Process.Start(procInfo) ?? throw new InvalidOperationException("Could not run aws cli");
-    await proc.WaitForExitAsync();
-    return await proc.StandardOutput.ReadToEndAsync();
+    Console.WriteLine($"Application error, exiting! {ex}");
+    Environment.Exit(1);
 }
